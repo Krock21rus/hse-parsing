@@ -6,6 +6,7 @@ import Prelude hiding (lookup)
 data AST = ASum Operator AST AST
          | AProd Operator AST AST
          | AAssign String AST
+         | ANeg AST
          | ANum Integer
          | AIdent String
 
@@ -52,6 +53,8 @@ factor ts =
         _ -> error "Syntax error: mismatched parentheses"
     TIdent v -> (AIdent v, accept ts)
     TNum d -> (ANum d, accept ts)
+    TOp o | o == Minus -> let (a,b) = factor (accept ts) in
+                                  (ANeg a, b)
     _ -> error "Syntax error: factor can only be a digit, an identifier or a parenthesised expression"
 
 lookup :: [Token] -> Token
@@ -70,7 +73,8 @@ instance Show AST where
                   AProd op l r -> showOp op : "\n" ++ show' (ident n) l ++ "\n" ++ show' (ident n) r
                   AAssign  v e -> v ++ " =\n" ++ show' (ident n) e
                   ANum   i     -> show i
-                  AIdent i     -> show i)
+                  AIdent i     -> show i
+                  ANeg   i     -> "Unary " ++ showOp Minus : '\n' : show' (ident n) i)
       ident = (+1)
       showOp Plus  = '+'
       showOp Minus = '-'
