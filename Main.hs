@@ -15,3 +15,4 @@ main = do
   runParser " 1 * 2 - 3 / 4 + 5"
   runParser "(var = 13 * 42)"
   runParser "(var = -13 * -42 + -142 - 143)"
+  runParser "(var = -13 * -42 + -142 - 143 + 5^6^(-7))"
