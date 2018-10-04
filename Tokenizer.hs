@@ -1,7 +1,7 @@
 module Tokenizer where
 
-data Token = TDigit Integer
-           | TIdent Char
+data Token = TNum Integer
+           | TIdent String
            | TOp Operator
            | TLParen
            | TRParen
@@ -18,13 +18,15 @@ data Operator = Plus
 tokenize :: String -> [Token]
 tokenize [] = [TEof]
 tokenize (c : cs) | isOperator c   = TOp (operator c) : tokenize cs
-                  | isDigit c      = TDigit (digit c) : tokenize cs
-                  | isAlpha c      = TIdent (alpha c) : tokenize cs
+                  | isDigit c      = TNum (read (takeWhile isDigit (c:cs)) :: Integer) : tokenize (dropWhile isDigit cs)
+                  | isAlpha c      = TIdent (takeWhile isIdent (c:cs)) : tokenize (dropWhile isIdent cs)
                   | c == '('       = TLParen : tokenize cs
                   | c == ')'       = TRParen : tokenize cs
                   | c == '='       = TAssign : tokenize cs
                   | isWhiteSpace c = tokenize cs
                   | otherwise = error ("Lexical error: unacceptable character " ++ [c])
+
+isIdent c = (isDigit c) || (isAlpha c)
 
 isOperator :: Char -> Bool
 isOperator x = x `elem` "+-*/"
