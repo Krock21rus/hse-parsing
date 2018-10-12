@@ -1,77 +1,81 @@
-module Parser where
+module Parser (parse) where -- only expose the top-level parsing function
 
-import Tokenizer
-import Prelude hiding (lookup)
+import Combinators
+import qualified Tokenizer as T
+import Prelude hiding (lookup, (>>=), map, pred, return, elem)
 
-data AST = ASum Operator AST AST
-         | AProd Operator AST AST
-         | AAssign String AST
-         | ANeg AST
-         | AExp AST AST
+data AST = ASum T.Operator AST AST
+         | AProd T.Operator AST AST
+         | AAssign Char AST
          | ANum Integer
-         | AIdent String
+         | AIdent Char
 
-parse :: String -> Maybe AST
+-- TODO: Rewrite this without using Success and Error
+parse :: String -> Maybe (Result AST)
 parse input =
-  let ts = tokenize input in
-  case ts of
-    [TEof] -> Nothing
-    _ -> let (tree, ts') = expression ts in
-         if ts' == [TEof]
-         then Just tree
-         else error ("Parsing error on: " ++ show ts')
+  case input of
+    [] -> Nothing
+    _ -> case expression input of
+           Success (tree, ts') ->
+             if null (dropWhile T.isWhiteSpace ts')
+             then Just (Success tree)
+             else Just (Error ("Syntax error on: " ++ show ts')) -- Only a prefix of the input is parsed
+           Error err -> Just (Error err) -- Legitimate syntax error
 
-expression :: [Token] -> (AST, [Token])
-expression ts =
-  let (termNode, ts') = term ts in
-  case lookup ts' of
-    TOp op | op == Plus || op == Minus ->
-      let (exprNode, ts'') = expression $ accept ts' in
-      (ASum op termNode exprNode, ts'')
-    TAssign ->
-      case termNode of
-        AIdent v -> let (exprNode, ts'') = expression $ accept ts' in
-                    (AAssign v exprNode, ts'')
-        _ -> error "Syntax error: assignment is only possible to identifiers"
-    _ -> (termNode, ts')
+expression :: Parser AST
+expression =
+  ( identifier >>= \(AIdent i) ->
+    assignment |>
+    expression >>= \e -> return (AAssign i e)
+  )
+  <|> ( term       >>= \l  -> -- Here the identifier is parsed twice :(
+        plusMinus  >>= \op ->
+        expression >>= \r  -> return (ASum op l r)
+      )
+  <|> term
 
-term :: [Token] -> (AST, [Token])
-term ts =
-  let (factNode, ts') = expterm ts in
-  case lookup ts' of
-    TOp op | op == Mult || op == Div ->
-      let (termNode, ts'') = term $ accept ts' in
-      (AProd op factNode termNode, ts'')
-    _ -> (factNode, ts')
+term :: Parser AST
+term =
+  -- make sure we don't reparse the factor (Term -> Factor (('/' | '*') Term | epsilon ))
+  factor >>= \l ->
+  ( ( divMult >>= \op ->
+      term    >>= \r  -> return (AProd op l r)
+    )
+    <|> return l
+  )
 
-expterm :: [Token] -> (AST, [Token])
-expterm ts =
-  let (factNode, ts') = factor ts in
-  case lookup ts' of
-    TOp op | op == Exp ->
-      let (termNode, ts'') = expterm $ accept ts' in
-      (AExp factNode termNode, ts'')
-    _ -> (factNode, ts')
+factor :: Parser AST
+factor =
+  ( lparen |>
+    expression >>= \e ->
+    rparen |> return e -- No need to keep the parentheses
+  )
+  <|> identifier
+  <|> digit
 
-factor :: [Token] -> (AST, [Token])
-factor ts =
-  case lookup ts of
-    TLParen ->
-      let (exprNode, ts') = expression $ accept ts in
-      case lookup ts' of
-        TRParen -> (exprNode, accept ts')
-        _ -> error "Syntax error: mismatched parentheses"
-    TIdent v -> (AIdent v, accept ts)
-    TNum d -> (ANum d, accept ts)
-    TOp o | o == Minus -> let (a,b) = factor (accept ts) in
-                                  (ANeg a, b)
-    _ -> error "Syntax error: factor can only be a digit, an identifier or a parenthesised expression"
+digit :: Parser AST
+digit      = map (ANum   . T.digit) (sat T.isDigit elem)
 
-lookup :: [Token] -> Token
-lookup = head
+identifier :: Parser AST
+identifier = map (AIdent . T.alpha) (sat T.isAlpha elem)
 
-accept :: [Token] -> [Token]
-accept = tail
+lparen :: Parser Char
+lparen = char '('
+
+rparen :: Parser Char
+rparen = char ')'
+
+assignment :: Parser Char
+assignment = char '='
+
+plusMinus :: Parser T.Operator
+plusMinus = map T.operator (char '+' <|> char '-')
+
+divMult :: Parser T.Operator
+divMult   = map T.operator (char '/' <|> char '*')
+
+
+
 
 instance Show AST where
   show tree = "\n" ++ show' 0 tree
@@ -81,14 +85,11 @@ instance Show AST where
         (case t of
                   ASum  op l r -> showOp op : "\n" ++ show' (ident n) l ++ "\n" ++ show' (ident n) r
                   AProd op l r -> showOp op : "\n" ++ show' (ident n) l ++ "\n" ++ show' (ident n) r
-                  AAssign  v e -> v ++ " =\n" ++ show' (ident n) e
+                  AAssign  v e -> v : " =\n" ++ show' (ident n) e
                   ANum   i     -> show i
-                  AIdent i     -> show i
-                  ANeg   i     -> "Unary " ++ showOp Minus : '\n' : show' (ident n) i
-                  AExp     l r -> '^' : "\n" ++ show' (ident n) l ++ "\n" ++ show' (ident n) r)
+                  AIdent i     -> show i)
       ident = (+1)
-      showOp Plus  = '+'
-      showOp Minus = '-'
-      showOp Mult  = '*'
-      showOp Div   = '/'
-      showOp Exp   = '^'
+      showOp T.Plus  = '+'
+      showOp T.Minus = '-'
+      showOp T.Mult  = '*'
+      showOp T.Div   = '/'
