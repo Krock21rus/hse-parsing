@@ -45,14 +45,22 @@ return r inp = Success (r, inp)
 zero :: String -> Parser a
 zero err = const $ Error err
 
--- Chops of the first element of the string
-elem :: Parser Char
-elem (c : cs) = Success (c, cs)
+-- Chops of the first elem of the string
+chopchar :: Parser Char
+chopchar (c : cs) = Success (c, cs)
+chopchar [] = Error "Empty string"
+
+-- Chops of the first elem of the string
+elem :: Parser String
 elem [] = Error "Empty string"
+elem cs = let (a, b) = (span isElem cs) in
+              case a of
+                [] -> Error "Empty string"
+                a -> Success (a, b)
 
 -- Checks if the first character of the string is the given one
 char :: Char -> Parser Char
-char c = sat (== c) elem
+char c = sat (== c) chopchar
 
 -- Checks if the parser result satisfies the predicate
 sat :: (a -> Bool) -> Parser a -> Parser a

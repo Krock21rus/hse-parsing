@@ -6,9 +6,11 @@ import Prelude hiding (lookup, (>>=), map, pred, return, elem)
 
 data AST = ASum T.Operator AST AST
          | AProd T.Operator AST AST
-         | AAssign Char AST
+         | AAssign String AST
          | ANum Integer
-         | AIdent Char
+         | AIdent String
+         | ANeg AST
+         | AExp AST AST
 
 -- TODO: Rewrite this without using Success and Error
 parse :: String -> Maybe (Result AST)
@@ -37,9 +39,18 @@ expression =
 term :: Parser AST
 term =
   -- make sure we don't reparse the factor (Term -> Factor (('/' | '*') Term | epsilon ))
-  factor >>= \l ->
+  expterm >>= \l ->
   ( ( divMult >>= \op ->
       term    >>= \r  -> return (AProd op l r)
+    )
+    <|> return l
+  )
+
+expterm :: Parser AST
+expterm =
+  factor >>= \l ->
+  ( ( expOp |>
+      (expterm    >>= \r  -> return (AExp l r))
     )
     <|> return l
   )
@@ -51,13 +62,14 @@ factor =
     rparen |> return e -- No need to keep the parentheses
   )
   <|> identifier
-  <|> digit
+  <|> number
+  <|> (char '-' |> factor >>= \e -> return (ANeg e))
 
-digit :: Parser AST
-digit      = map (ANum   . T.digit) (sat T.isDigit elem)
+number :: Parser AST
+number      = map (ANum   . T.number) (sat T.isNumber elem)
 
 identifier :: Parser AST
-identifier = map (AIdent . T.alpha) (sat T.isAlpha elem)
+identifier = map (AIdent) (sat T.isIdent elem)
 
 lparen :: Parser Char
 lparen = char '('
@@ -74,6 +86,9 @@ plusMinus = map T.operator (char '+' <|> char '-')
 divMult :: Parser T.Operator
 divMult   = map T.operator (char '/' <|> char '*')
 
+expOp :: Parser T.Operator
+expOp   = map T.operator (char '^')
+
 
 
 
@@ -85,11 +100,14 @@ instance Show AST where
         (case t of
                   ASum  op l r -> showOp op : "\n" ++ show' (ident n) l ++ "\n" ++ show' (ident n) r
                   AProd op l r -> showOp op : "\n" ++ show' (ident n) l ++ "\n" ++ show' (ident n) r
-                  AAssign  v e -> v : " =\n" ++ show' (ident n) e
+                  AExp     l r -> showOp T.Exp : "\n" ++ show' (ident n) l ++ "\n" ++ show' (ident n) r
+                  AAssign  v e -> v ++ " =\n" ++ show' (ident n) e
                   ANum   i     -> show i
-                  AIdent i     -> show i)
+                  AIdent i     -> show i
+                  ANeg   e     -> "Unary -\n" ++ show' (ident n) e)
       ident = (+1)
       showOp T.Plus  = '+'
       showOp T.Minus = '-'
       showOp T.Mult  = '*'
       showOp T.Div   = '/'
+      showOp T.Exp   = '^'

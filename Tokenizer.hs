@@ -21,18 +21,18 @@ operator c = error ("Lexical error: " ++ c : " is not an operator!")
 isDigit :: Char -> Bool
 isDigit x = x `elem` "0123456789"
 
-digit :: Char -> Integer
-digit c | c == '0' = 0
-        | c == '1' = 1
-        | c == '2' = 2
-        | c == '3' = 3
-        | c == '4' = 4
-        | c == '5' = 5
-        | c == '6' = 6
-        | c == '7' = 7
-        | c == '8' = 8
-        | c == '9' = 9
-digit c = error ("Lexical error: " ++ c : " is not a digit!")
+isNumber :: String -> Bool
+isNumber x = all isDigit x
+
+number :: String -> Integer
+number c = read c :: Integer
+
+isElem :: Char -> Bool
+isElem c = (isDigit c) || (isAlpha c)
+
+isIdent :: String -> Bool
+isIdent [] = False
+isIdent (c : cs) = (isAlpha c) && (all isElem cs)
 
 isAlpha :: Char -> Bool
 isAlpha c = c `elem` ['a' .. 'z']

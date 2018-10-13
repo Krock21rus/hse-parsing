@@ -23,4 +23,7 @@ main = do
   runParser "1*2-3/4+5"
   runParser "!"
   runParser "1 + 2"
-  runParser "1 +  2 + 3   - 4"
+  runParser "   1 +  2 + 3   - 4   "
+  runParser " abc = def = 12 - 13"
+  runParser "-1 -2 -3 -4  + 4 + -(-5 -5)"
+  runParser "-1^-2^-3 - 3^3"
