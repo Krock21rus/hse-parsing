@@ -5,6 +5,7 @@ data Operator = Plus
               | Mult
               | Div
               | Exp
+              | Semicolon
               deriving (Show, Eq)
 
 isOperator :: Char -> Bool
@@ -16,6 +17,7 @@ operator c | c == '+' = Plus
            | c == '*' = Mult
            | c == '/' = Div
            | c == '^' = Exp
+           | c == ';' = Semicolon
 operator c = error ("Lexical error: " ++ c : " is not an operator!")
 
 isDigit :: Char -> Bool

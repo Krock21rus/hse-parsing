@@ -27,3 +27,5 @@ main = do
   runParser " abc = def = 12 - 13"
   runParser "-1 -2 -3 -4  + 4 + -(-5 -5)"
   runParser "-1^-2^-3 - 3^3"
+  runParser " a = b = c; b = a^2; c = 5^7"
+  runParser "x = 13;\ny = z = 42 + 6;\n777"

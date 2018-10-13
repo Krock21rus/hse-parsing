@@ -11,18 +11,31 @@ data AST = ASum T.Operator AST AST
          | AIdent String
          | ANeg AST
          | AExp AST AST
+         | AProgram AST AST
 
 -- TODO: Rewrite this without using Success and Error
 parse :: String -> Maybe (Result AST)
 parse input =
   case input of
     [] -> Nothing
-    _ -> case expression input of
+    _ -> case program input of
            Success (tree, ts') ->
              if null (dropWhile T.isWhiteSpace ts')
              then Just (Success tree)
              else Just (Error ("Syntax error on: " ++ show ts')) -- Only a prefix of the input is parsed
            Error err -> Just (Error err) -- Legitimate syntax error
+
+program :: Parser AST
+program =
+  expression >>= \l ->
+  (
+    (
+    progOp     >>= \op ->
+    program    >>= \r -> return (AProgram l r)
+    )
+    <|>
+    return l
+  )
 
 expression :: Parser AST
 expression =
@@ -89,6 +102,9 @@ divMult   = map T.operator (char '/' <|> char '*')
 expOp :: Parser T.Operator
 expOp   = map T.operator (char '^')
 
+progOp :: Parser T.Operator
+progOp  = map T.operator (char ';')
+
 
 
 
@@ -104,10 +120,12 @@ instance Show AST where
                   AAssign  v e -> v ++ " =\n" ++ show' (ident n) e
                   ANum   i     -> show i
                   AIdent i     -> show i
-                  ANeg   e     -> "Unary -\n" ++ show' (ident n) e)
+                  ANeg   e     -> "Unary -\n" ++ show' (ident n) e
+                  AProgram l r -> showOp T.Semicolon : "\n" ++ show' (ident n) l ++ "\n" ++ show' (ident n) r)
       ident = (+1)
       showOp T.Plus  = '+'
       showOp T.Minus = '-'
       showOp T.Mult  = '*'
       showOp T.Div   = '/'
       showOp T.Exp   = '^'
+      showOp T.Semicolon = ';'
