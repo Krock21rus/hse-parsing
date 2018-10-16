@@ -55,8 +55,8 @@ expression =
         plusMinus  >>= \op ->
         expression >>= \r  -> return (ASum op l r)
       )
-  <|> term
   <|> listterm
+  <|> term
 
 term :: Parser AST
 term =

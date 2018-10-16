@@ -31,3 +31,5 @@ main = do
   runParser "x = 13;\ny = z = 42 + 6;\n777"
   runParser "a=[]"
   runParser "a = [] ;\n[b = 13, [z], 42 + 6] ++ a ++ [31, 25];\n777"
+  runParser "a ++ b"
+  runParser "a ++ [23]"
