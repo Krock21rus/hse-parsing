@@ -29,3 +29,5 @@ main = do
   runParser "-1^-2^-3 - 3^3"
   runParser " a = b = c; b = a^2; c = 5^7"
   runParser "x = 13;\ny = z = 42 + 6;\n777"
+  runParser "a=[]"
+  runParser "a = [] ;\n[b = 13, [z], 42 + 6] ++ a ++ [31, 25];\n777"

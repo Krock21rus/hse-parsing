@@ -12,6 +12,9 @@ data AST = ASum T.Operator AST AST
          | ANeg AST
          | AExp AST AST
          | AProgram AST AST
+         | AList AST AST
+         | AConcat AST AST
+         | AEmpty
 
 -- TODO: Rewrite this without using Success and Error
 parse :: String -> Maybe (Result AST)
@@ -43,11 +46,17 @@ expression =
     assignment |>
     expression >>= \e -> return (AAssign i e)
   )
+  -- <|>
+  -- ( identifier >>= \(AIdent i) ->
+  --   assignment |>
+  --   listterm >>= \e -> return (AAssign i e)
+  -- )
   <|> ( term       >>= \l  -> -- Here the identifier is parsed twice :(
         plusMinus  >>= \op ->
         expression >>= \r  -> return (ASum op l r)
       )
   <|> term
+  <|> listterm
 
 term :: Parser AST
 term =
@@ -78,6 +87,33 @@ factor =
   <|> number
   <|> (char '-' |> factor >>= \e -> return (ANeg e))
 
+inlist :: Parser AST
+inlist =
+  (
+  expression >>= \e1 ->
+  comma |>
+  inlist >>= \e2 -> return (AList e1 e2)
+  )
+  <|> (expression >>= \e -> return (AList e AEmpty))
+  <|> return (AList AEmpty AEmpty)
+
+onelist :: Parser AST
+onelist =
+  ( lbracket |>
+    inlist >>= \e ->
+    rbracket |> return e
+  )
+  <|> identifier
+
+listterm :: Parser AST
+listterm =
+  (
+  onelist >>= \a ->
+  char '+' -|> char '+' -- -|> is |> without drop spaces
+  |> listterm >>= \b -> return (AConcat a b)
+  )
+  <|> onelist
+
 number :: Parser AST
 number      = map (ANum   . T.number) (sat T.isNumber elem)
 
@@ -89,6 +125,15 @@ lparen = char '('
 
 rparen :: Parser Char
 rparen = char ')'
+
+lbracket :: Parser Char
+lbracket = char '['
+
+rbracket :: Parser Char
+rbracket = char ']'
+
+comma :: Parser Char
+comma = char ','
 
 assignment :: Parser Char
 assignment = char '='
@@ -121,7 +166,10 @@ instance Show AST where
                   ANum   i     -> show i
                   AIdent i     -> show i
                   ANeg   e     -> "Unary -\n" ++ show' (ident n) e
-                  AProgram l r -> showOp T.Semicolon : "\n" ++ show' (ident n) l ++ "\n" ++ show' (ident n) r)
+                  AProgram l r -> showOp T.Semicolon : "\n" ++ show' (ident n) l ++ "\n" ++ show' (ident n) r
+                  AList    l r -> "List\n" ++ show' (ident n) l ++ "\n" ++ show' (ident n) r
+                  AConcat  l r -> "Concat\n" ++ show' (ident n) l ++ "\n" ++ show' (ident n) r
+                  AEmpty       -> "";)
       ident = (+1)
       showOp T.Plus  = '+'
       showOp T.Minus = '-'

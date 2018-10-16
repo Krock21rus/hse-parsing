@@ -37,6 +37,20 @@ infixl 7 |>
 (|>) :: Parser a -> Parser b -> Parser b
 p |> q = p >>= const q
 
+-- Sequential combinator: if the first parser successfully parses some prefix, the second is run on the suffix
+-- The second parser is supposed to use the result of the first parser
+infixl 7 ->>=
+(->>=) :: Parser a -> (a -> Parser b ) -> Parser b
+p ->>= q = \inp ->
+  case p inp of
+    Success (r, inp') -> q r inp'
+    Error err -> Error err
+
+-- Sequential combinator which ignores the result of the first parser
+infixl 7 -|>
+(-|>) :: Parser a -> Parser b -> Parser b
+p -|> q = p ->>= const q
+
 -- Succeedes without consuming any input, returning a value
 return :: a -> Parser a
 return r inp = Success (r, inp)
