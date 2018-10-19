@@ -28,13 +28,48 @@ parse input =
              else Just (Error ("Syntax error on: " ++ show ts')) -- Only a prefix of the input is parsed
            Error err -> Just (Error err) -- Legitimate syntax error
 
+isnotendl :: Char -> Bool
+isnotendl c = not (c == '\n')
+
+droponechar :: String -> String
+droponechar (c:cs) = cs
+droponechar cs = cs
+
+mydrop2 :: String -> String
+mydrop2 (c:cs) =
+  case c of
+    '/' -> cs
+    _ -> mydrop cs
+mydrop2 cs = cs
+
+
+mydrop :: String -> String
+mydrop (c:cs) =
+  case c of
+    '*' -> mydrop2 cs
+    _ -> mydrop cs
+mydrop cs = cs
+
+cleancomm :: Parser AST
+cleancomm inp =
+  let inp' = (dropWhile isWhiteSpace inp) in
+    case char '/' inp' of
+      Success (a, inp'') ->
+        case chopchar inp'' of
+          Success ('/', _) -> Success ('', cleancomm (dropWhile isnotendl (droponechar inp'')))
+          Success ('*', _) -> Success ('', cleancomm (mydrop inp''))
+          Success ('!', _) -> Success ('', "")
+          Success (a, b) -> Success ('', inp')
+          Error _ -> Success ('', inp')
+      Error _ -> Success ('', inp')
+
 program :: Parser AST
 program =
-  expression >>= \l ->
+  cleancomm |> expression >>= \l ->
   (
     (
-    progOp     >>= \op ->
-    program    >>= \r -> return (AProgram l r)
+    cleancomm |> progOp     >>= \op ->
+    cleancomm |> program    >>= \r -> return (AProgram l r)
     )
     <|>
     return l
@@ -43,8 +78,8 @@ program =
 expression :: Parser AST
 expression =
   ( identifier >>= \(AIdent i) ->
-    assignment |>
-    expression >>= \e -> return (AAssign i e)
+    cleancomm |> assignment |>
+    cleancomm |> expression >>= \e -> return (AAssign i e)
   )
   -- <|>
   -- ( identifier >>= \(AIdent i) ->
@@ -52,8 +87,8 @@ expression =
   --   listterm >>= \e -> return (AAssign i e)
   -- )
   <|> ( term       >>= \l  -> -- Here the identifier is parsed twice :(
-        plusMinus  >>= \op ->
-        expression >>= \r  -> return (ASum op l r)
+        cleancomm |> plusMinus  >>= \op ->
+        cleancomm |> expression >>= \r  -> return (ASum op l r)
       )
   -- <|> listterm
   <|> term
@@ -62,8 +97,8 @@ term :: Parser AST
 term =
   -- make sure we don't reparse the factor (Term -> Factor (('/' | '*') Term | epsilon ))
   expterm >>= \l ->
-  ( ( divMult >>= \op ->
-      term    >>= \r  -> return (AProd op l r)
+  ( ( cleancomm |> divMult >>= \op ->
+      cleancomm |> term    >>= \r  -> return (AProd op l r)
     )
     <|> return l
   )
@@ -71,8 +106,8 @@ term =
 expterm :: Parser AST
 expterm =
   factor >>= \l ->
-  ( ( expOp |>
-      (expterm    >>= \r  -> return (AExp l r))
+  ( ( cleancomm |> expOp |>
+      (cleancomm |> expterm    >>= \r  -> return (AExp l r))
     )
     <|> return l
   )
@@ -80,8 +115,8 @@ expterm =
 factor :: Parser AST
 factor =
   ( lparen |>
-    expression >>= \e ->
-    rparen |> return e -- No need to keep the parentheses
+    cleancomm |> expression >>= \e ->
+    cleancomm |> rparen |> return e -- No need to keep the parentheses
   )
   <|> identifier
   <|> number
