@@ -23,7 +23,7 @@ parse input =
     [] -> Nothing
     _ -> case program input of
            Success (tree, ts') ->
-             if null (dropWhile T.isWhiteSpace ts')
+             if null (getclean ts')
              then Just (Success tree)
              else Just (Error ("Syntax error on: " ++ show ts')) -- Only a prefix of the input is parsed
            Error err -> Just (Error err) -- Legitimate syntax error
@@ -55,7 +55,7 @@ expression =
         plusMinus  >>= \op ->
         expression >>= \r  -> return (ASum op l r)
       )
-  <|> listterm
+  -- <|> listterm
   <|> term
 
 term :: Parser AST

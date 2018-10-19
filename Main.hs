@@ -18,18 +18,7 @@ instance {-# OVERLAPPING #-} Show a => Show (Maybe (Result a)) where
 
 main :: IO ()
 main = do
-  runParser "1-2-3"
-  runParser "(((9)))"
-  runParser "1*2-3/4+5"
-  runParser "!"
-  runParser "1 + 2"
-  runParser "   1 +  2 + 3   - 4   "
-  runParser " abc = def = 12 - 13"
-  runParser "-1 -2 -3 -4  + 4 + -(-5 -5)"
-  runParser "-1^-2^-3 - 3^3"
-  runParser " a = b = c; b = a^2; c = 5^7"
-  runParser "x = 13;\ny = z = 42 + 6;\n777"
-  runParser "a=[]"
-  runParser "a = [] ;\n[b = 13, [z], 42 + 6] ++ a ++ [31, 25];\n777"
-  runParser "a ++ b"
-  runParser "a ++ [23]"
+  runParser "a + b = c; // abc\n d = e"
+  runParser "a + b = c /* 12c3r4wx5v34iuh ! * *  */"
+  runParser "a = /* 2vtc43243 ! * * */ b + c"
+  runParser "a = b // fvw 234 f / * !\n + c; d = 2 /* fc2243 ! * * / */ - 3; e = 5/!"

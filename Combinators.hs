@@ -14,13 +14,48 @@ data Result r = Success r
 -- The result of parsing is some payload r and the suffix which wasn't parsed
 type Parser r = Input -> Result (r, Input)
 
+isnotendl :: Char -> Bool
+isnotendl c = not (c == '\n')
+
+droponechar :: String -> String
+droponechar (c:cs) = cs
+droponechar cs = cs
+
+mydrop2 :: String -> String
+mydrop2 (c:cs) =
+  case c of
+    '/' -> cs
+    _ -> mydrop cs
+mydrop2 cs = cs
+
+
+mydrop :: String -> String
+mydrop (c:cs) =
+  case c of
+    '*' -> mydrop2 cs
+    _ -> mydrop cs
+mydrop cs = cs
+
+getclean :: String -> String
+getclean inp =
+  let inp' = (dropWhile isWhiteSpace inp) in
+    case char '/' inp' of
+      Success (a,inp'') ->
+        case chopchar inp'' of
+          Success ('/', _) -> getclean (dropWhile isnotendl (droponechar inp''))
+          Success ('*', _) -> getclean (mydrop inp'')
+          Success ('!', _) -> ""
+          Error _ -> inp'
+      Error _ -> inp'
+getclean inp = inp
+
 -- Choice combinator: checks if the input can be parsed with either the first, or the second parser
 -- Left biased: make sure, that the first parser consumes more input
 infixl 6 <|>
 (<|>) :: Parser a -> Parser a -> Parser a
 p <|> q = \inp ->
-  case p inp of
-    Error _ -> q inp
+  case p (getclean inp) of
+    Error _ -> q (getclean inp)
     result  -> result
 
 -- Sequential combinator: if the first parser successfully parses some prefix, the second is run on the suffix
@@ -28,9 +63,10 @@ p <|> q = \inp ->
 infixl 7 >>=
 (>>=) :: Parser a -> (a -> Parser b ) -> Parser b
 p >>= q = \inp ->
-  case p (dropWhile isWhiteSpace inp) of
-    Success (r, inp') -> q r (dropWhile isWhiteSpace inp')
-    Error err -> Error err
+  let inp' = (getclean inp) in
+    case p inp' of
+      Success (r, inp'') -> q r (getclean inp'')
+      Error err -> Error err
 
 -- Sequential combinator which ignores the result of the first parser
 infixl 7 |>
