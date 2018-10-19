@@ -14,6 +14,41 @@ data Result r = Success r
 -- The result of parsing is some payload r and the suffix which wasn't parsed
 type Parser r = Input -> Result (r, Input)
 
+isnotendl :: Char -> Bool
+isnotendl c = not (c == '\n')
+
+droponechar :: String -> String
+droponechar (c:cs) = cs
+droponechar cs = cs
+
+mydrop2 :: String -> String
+mydrop2 (c:cs) =
+  case c of
+    '/' -> cs
+    _ -> mydrop cs
+mydrop2 cs = cs
+
+
+mydrop :: String -> String
+mydrop (c:cs) =
+  case c of
+    '*' -> mydrop2 cs
+    _ -> mydrop cs
+mydrop cs = cs
+
+getclean :: String -> String
+getclean inp =
+  let inp' = (dropWhile isWhiteSpace inp) in
+    case char '/' inp' of
+      Success (a,inp'') ->
+        case chopchar inp'' of
+          Success ('/', _) -> getclean (dropWhile isnotendl (droponechar inp''))
+          Success ('*', _) -> getclean (mydrop inp'')
+          Success ('!', _) -> ""
+          Success (a, b) -> inp'
+          Error _ -> inp'
+      Error _ -> inp'
+
 -- Choice combinator: checks if the input can be parsed with either the first, or the second parser
 -- Left biased: make sure, that the first parser consumes more input
 infixl 6 <|>

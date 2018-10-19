@@ -28,40 +28,18 @@ parse input =
              else Just (Error ("Syntax error on: " ++ show ts')) -- Only a prefix of the input is parsed
            Error err -> Just (Error err) -- Legitimate syntax error
 
-isnotendl :: Char -> Bool
-isnotendl c = not (c == '\n')
-
-droponechar :: String -> String
-droponechar (c:cs) = cs
-droponechar cs = cs
-
-mydrop2 :: String -> String
-mydrop2 (c:cs) =
-  case c of
-    '/' -> cs
-    _ -> mydrop cs
-mydrop2 cs = cs
-
-
-mydrop :: String -> String
-mydrop (c:cs) =
-  case c of
-    '*' -> mydrop2 cs
-    _ -> mydrop cs
-mydrop cs = cs
-
 cleancomm :: Parser AST
 cleancomm inp =
-  let inp' = (dropWhile isWhiteSpace inp) in
+  let inp' = (dropWhile T.isWhiteSpace inp) in
     case char '/' inp' of
       Success (a, inp'') ->
         case chopchar inp'' of
-          Success ('/', _) -> Success ('', cleancomm (dropWhile isnotendl (droponechar inp'')))
-          Success ('*', _) -> Success ('', cleancomm (mydrop inp''))
-          Success ('!', _) -> Success ('', "")
-          Success (a, b) -> Success ('', inp')
-          Error _ -> Success ('', inp')
-      Error _ -> Success ('', inp')
+          Success ('/', _) -> cleancomm (dropWhile isnotendl (droponechar inp''))
+          Success ('*', _) -> cleancomm (mydrop inp'')
+          Success ('!', _) -> Success (AEmpty, "")
+          Success (a, b) -> Success (AEmpty, inp')
+          Error _ -> Success (AEmpty, inp')
+      Error _ -> Success (AEmpty, inp')
 
 program :: Parser AST
 program =
