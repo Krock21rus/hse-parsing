@@ -22,3 +22,5 @@ main = do
   runParser "a + b = c /* 12c3r4wx5v34iuh ! * *  */"
   runParser "a = /* 2vtc43243 ! * * */ b + c"
   runParser "a = b // fvw 234 f / * !\n + c; d = 2 /* fc2243 ! * * / */ - 3; e = 5/!"
+  runParser "1/! + 2;\n// x = 13;\n777"
+  runParser "1 + 2;\n/ / x = 13;\n777"

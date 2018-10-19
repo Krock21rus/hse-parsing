@@ -45,6 +45,7 @@ getclean inp =
           Success ('/', _) -> getclean (dropWhile isnotendl (droponechar inp''))
           Success ('*', _) -> getclean (mydrop inp'')
           Success ('!', _) -> ""
+          Success (_, _) -> inp'
           Error _ -> inp'
       Error _ -> inp'
 getclean inp = inp
