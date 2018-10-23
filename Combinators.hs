@@ -14,58 +14,85 @@ data Result r = Success r
 -- The result of parsing is some payload r and the suffix which wasn't parsed
 type Parser r = Input -> Result (r, Input)
 
-isnotendl :: Char -> Bool
-isnotendl c = not (c == '\n')
+chopspace :: Parser Char
+chopspace =
+  char ' ' -<|> char '\t' -<|> char '\n'
 
-droponechar :: String -> String
-droponechar (c:cs) = cs
-droponechar cs = cs
+parsespace :: Parser Char
+parsespace =
+  chopspace ->>= \a ->
+  (
+    parsespace -<|> return ' '
+  )
 
-mydrop2 :: String -> String
-mydrop2 (c:cs) =
-  case c of
-    '/' -> cs
-    _ -> mydrop cs
-mydrop2 cs = cs
+untilendl :: Parser Char
+untilendl =
+  notchar '\n' -|>
+  (
+    untilendl -<|> return ' '
+  )
 
+untilcomm2 :: Parser Char
+untilcomm2 =
+  (char '*' -|> char '/') -<|> (chopchar -|> untilcomm2)
 
-mydrop :: String -> String
-mydrop (c:cs) =
-  case c of
-    '*' -> mydrop2 cs
-    _ -> mydrop cs
-mydrop cs = cs
+parsecomm1 :: Parser Char
+parsecomm1 =
+  char '/' -|> char '/' -|> untilendl
 
-getclean :: String -> String
-getclean inp =
-  let inp' = (dropWhile isWhiteSpace inp) in
-    case char '/' inp' of
-      Success (a,inp'') ->
-        case chopchar inp'' of
-          Success ('/', _) -> getclean (dropWhile isnotendl (droponechar inp''))
-          Success ('*', _) -> getclean (mydrop inp'')
-          Success ('!', _) -> ""
-          Success (a, b) -> inp'
-          Error _ -> inp'
-      Error _ -> inp'
+parsecomm2 :: Parser Char
+parsecomm2 =
+  char '/' -|> char '*' -|> untilcomm2
+
+parsecomm3 :: Parser Char
+parsecomm3 =
+  char '/' -|> char '!' -|> return ' '
+
+parseempty :: Parser Char
+parseempty =
+  ((parsespace -<|> parsecomm1 -<|> parsecomm2 -<|> parsecomm3) -|> parseempty)
+  -<|> return ' '
 
 -- Choice combinator: checks if the input can be parsed with either the first, or the second parser
 -- Left biased: make sure, that the first parser consumes more input
-infixl 6 <|>
-(<|>) :: Parser a -> Parser a -> Parser a
-p <|> q = \inp ->
+infixl 6 -<|>
+(-<|>) :: Parser a -> Parser a -> Parser a
+p -<|> q = \inp ->
   case p inp of
     Error _ -> q inp
     result  -> result
 
 -- Sequential combinator: if the first parser successfully parses some prefix, the second is run on the suffix
 -- The second parser is supposed to use the result of the first parser
-infixl 7 >>=
-(>>=) :: Parser a -> (a -> Parser b ) -> Parser b
-p >>= q = \inp ->
+infixl 7 ->>=
+(->>=) :: Parser a -> (a -> Parser b ) -> Parser b
+p ->>= q = \inp ->
   let inp' = inp in
     case p inp' of
       Success (r, inp'') -> q r inp''
+      Error err -> Error err
+
+-- Sequential combinator which ignores the result of the first parser
+infixl 7 -|>
+(-|>) :: Parser a -> Parser b -> Parser b
+p -|> q = p ->>= const q
+
+-- Choice combinator: checks if the input can be parsed with either the first, or the second parser
+-- Left biased: make sure, that the first parser consumes more input
+infixl 6 <|>
+(<|>) :: Parser a -> Parser a -> Parser a
+p <|> q = (parseempty -|> p) -<|> (parseempty -|> q)
+
+-- Sequential combinator: if the first parser successfully parses some prefix, the second is run on the suffix
+-- The second parser is supposed to use the result of the first parser
+infixl 7 >>=
+(>>=) :: Parser a -> (a -> Parser b ) -> Parser b
+p >>= q = \inp ->
+  let Success (c, inp') = parseempty inp in
+    case p inp' of
+      Success (r, inp'') ->
+        let Success (c, inp''') = parseempty inp'' in
+          q r inp'''
       Error err -> Error err
 
 -- Sequential combinator which ignores the result of the first parser
@@ -73,19 +100,6 @@ infixl 7 |>
 (|>) :: Parser a -> Parser b -> Parser b
 p |> q = p >>= const q
 
--- Sequential combinator: if the first parser successfully parses some prefix, the second is run on the suffix
--- The second parser is supposed to use the result of the first parser
-infixl 7 ->>=
-(->>=) :: Parser a -> (a -> Parser b ) -> Parser b
-p ->>= q = \inp ->
-  case p inp of
-    Success (r, inp') -> q r inp'
-    Error err -> Error err
-
--- Sequential combinator which ignores the result of the first parser
-infixl 7 -|>
-(-|>) :: Parser a -> Parser b -> Parser b
-p -|> q = p ->>= const q
 
 -- Succeedes without consuming any input, returning a value
 return :: a -> Parser a
@@ -111,6 +125,11 @@ elem cs = let (a, b) = (span isElem cs) in
 -- Checks if the first character of the string is the given one
 char :: Char -> Parser Char
 char c = sat (== c) chopchar
+
+-- Checks if the first character of the string is the given one
+notchar :: Char -> Parser Char
+notchar c = sat (/= c) chopchar
+
 
 -- Checks if the parser result satisfies the predicate
 sat :: (a -> Bool) -> Parser a -> Parser a

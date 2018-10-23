@@ -23,31 +23,20 @@ parse input =
     [] -> Nothing
     _ -> case program input of
            Success (tree, ts') ->
-             if null (getclean ts')
-             then Just (Success tree)
-             else Just (Error ("Syntax error on: " ++ show ts')) -- Only a prefix of the input is parsed
+            case (parseempty ts') of
+              Success (c, ts'') ->
+               if null ts''
+               then Just (Success tree)
+               else Just (Error ("Syntax error on: " ++ show ts'')) -- Only a prefix of the input is parsed
            Error err -> Just (Error err) -- Legitimate syntax error
-
-cleancomm :: Parser AST
-cleancomm inp =
-  let inp' = (dropWhile T.isWhiteSpace inp) in
-    case char '/' inp' of
-      Success (a, inp'') ->
-        case chopchar inp'' of
-          Success ('/', _) -> cleancomm (dropWhile isnotendl (droponechar inp''))
-          Success ('*', _) -> cleancomm (mydrop inp'')
-          Success ('!', _) -> Success (AEmpty, "")
-          Success (a, b) -> Success (AEmpty, inp')
-          Error _ -> Success (AEmpty, inp')
-      Error _ -> Success (AEmpty, inp')
 
 program :: Parser AST
 program =
-  cleancomm |> expression >>= \l ->
+   expression >>= \l ->
   (
     (
-    cleancomm |> progOp     >>= \op ->
-    cleancomm |> program    >>= \r -> return (AProgram l r)
+     progOp     >>= \op ->
+     program    >>= \r -> return (AProgram l r)
     )
     <|>
     return l
@@ -56,8 +45,8 @@ program =
 expression :: Parser AST
 expression =
   ( identifier >>= \(AIdent i) ->
-    cleancomm |> assignment |>
-    cleancomm |> expression >>= \e -> return (AAssign i e)
+     assignment |>
+     expression >>= \e -> return (AAssign i e)
   )
   -- <|>
   -- ( identifier >>= \(AIdent i) ->
@@ -65,8 +54,8 @@ expression =
   --   listterm >>= \e -> return (AAssign i e)
   -- )
   <|> ( term       >>= \l  -> -- Here the identifier is parsed twice :(
-        cleancomm |> plusMinus  >>= \op ->
-        cleancomm |> expression >>= \r  -> return (ASum op l r)
+         plusMinus  >>= \op ->
+         expression >>= \r  -> return (ASum op l r)
       )
   -- <|> listterm
   <|> term
@@ -75,8 +64,8 @@ term :: Parser AST
 term =
   -- make sure we don't reparse the factor (Term -> Factor (('/' | '*') Term | epsilon ))
   expterm >>= \l ->
-  ( ( cleancomm |> divMult >>= \op ->
-      cleancomm |> term    >>= \r  -> return (AProd op l r)
+  ( (  divMult >>= \op ->
+       term    >>= \r  -> return (AProd op l r)
     )
     <|> return l
   )
@@ -84,8 +73,8 @@ term =
 expterm :: Parser AST
 expterm =
   factor >>= \l ->
-  ( ( cleancomm |> expOp |>
-      (cleancomm |> expterm    >>= \r  -> return (AExp l r))
+  ( (  expOp |>
+      ( expterm    >>= \r  -> return (AExp l r))
     )
     <|> return l
   )
@@ -93,39 +82,12 @@ expterm =
 factor :: Parser AST
 factor =
   ( lparen |>
-    cleancomm |> expression >>= \e ->
-    cleancomm |> rparen |> return e -- No need to keep the parentheses
+     expression >>= \e ->
+     rparen |> return e -- No need to keep the parentheses
   )
   <|> identifier
   <|> number
   <|> (char '-' |> factor >>= \e -> return (ANeg e))
-
-inlist :: Parser AST
-inlist =
-  (
-  expression >>= \e1 ->
-  comma |>
-  inlist >>= \e2 -> return (AList e1 e2)
-  )
-  <|> (expression >>= \e -> return (AList e AEmpty))
-  <|> return (AList AEmpty AEmpty)
-
-onelist :: Parser AST
-onelist =
-  ( lbracket |>
-    inlist >>= \e ->
-    rbracket |> return e
-  )
-  <|> identifier
-
-listterm :: Parser AST
-listterm =
-  (
-  onelist >>= \a ->
-  char '+' -|> char '+' -- -|> is |> without drop spaces
-  |> listterm >>= \b -> return (AConcat a b)
-  )
-  <|> onelist
 
 number :: Parser AST
 number      = map (ANum   . T.number) (sat T.isNumber elem)
@@ -138,15 +100,6 @@ lparen = char '('
 
 rparen :: Parser Char
 rparen = char ')'
-
-lbracket :: Parser Char
-lbracket = char '['
-
-rbracket :: Parser Char
-rbracket = char ']'
-
-comma :: Parser Char
-comma = char ','
 
 assignment :: Parser Char
 assignment = char '='
