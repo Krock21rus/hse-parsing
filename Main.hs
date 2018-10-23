@@ -25,3 +25,4 @@ main = do
   runParser "1/! + 2;\n// x = 13;\n777"
   runParser "1 + 2;\n/ / x = 13;\n777"
   runParser "a = /* 2vtc43243 ! * * */ b"
+  runParser "abc /* 234vt 5 65**!/*1 24 t4*/ = /****/ def^2 /***/ + /***/ e /***/ ; /***/ // 4v2uy5c87wn452t//*88/8*/345 /!135v234/\ng=h/!nguwy4ic7y2n34ytwncmrjxi"

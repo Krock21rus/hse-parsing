@@ -32,6 +32,10 @@ untilendl =
     untilendl -<|> return ' '
   )
 
+untilend :: Parser Char
+untilend =
+  (chopchar -|> untilend) -<|> return ' '
+
 untilcomm2 :: Parser Char
 untilcomm2 =
   (char '*' -|> char '/') -<|> (chopchar -|> untilcomm2)
@@ -46,7 +50,7 @@ parsecomm2 =
 
 parsecomm3 :: Parser Char
 parsecomm3 =
-  char '/' -|> char '!' -|> return ' '
+  char '/' -|> char '!' -|> untilend
 
 parseempty :: Parser Char
 parseempty =
